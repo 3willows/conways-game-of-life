@@ -16,11 +16,21 @@ const (
 	CELL_SIZE int = 10 // Size of each cell in pixels
 )
 
+type touchState int
+
+const (
+	touchStateNone touchState = iota
+	touchStatePressing
+	touchStateSettled
+)
+
 type Game struct {
 	generation  int
 	board       [][]int
 	lastUpdate  time.Time
 	updateDelay time.Duration
+	touchState  touchState
+	touchID     ebiten.TouchID
 }
 
 var (
@@ -40,7 +50,8 @@ func emptyGeneration() *Game {
 		board:       board,
 		generation:  1,
 		lastUpdate:  time.Now(),
-		updateDelay: 500 * time.Millisecond, // Update every 500ms
+		updateDelay: 500 * time.Millisecond,
+		touchState:  touchStateNone,
 	}
 }
 
@@ -55,10 +66,7 @@ func giveState(g *Game) {
 }
 
 func (g *Game) Update() error {
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		x, y := ebiten.CursorPosition()
-		interaction(x, y, g)
-	}
+	g.handleInput()
 
 	if ebiten.IsKeyPressed(ebiten.KeyUp) {
 		g.updateDelay = max(g.updateDelay-50*time.Millisecond, 50*time.Millisecond)
@@ -74,6 +82,32 @@ func (g *Game) Update() error {
 	}
 
 	return nil
+}
+
+func (g *Game) handleInput() {
+	// Handle mouse input
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		x, y := ebiten.CursorPosition()
+		g.interaction(x, y)
+	}
+
+	// Handle touch input
+	touches := ebiten.TouchIDs()
+	switch g.touchState {
+	case touchStateNone:
+		if len(touches) == 1 {
+			g.touchID = touches[0]
+			x, y := ebiten.TouchPosition(g.touchID)
+			g.interaction(x, y) 			
+			g.touchState = touchStatePressing
+		}
+	case touchStatePressing:
+		if len(touches) == 0 {
+			g.touchState = touchStateSettled
+		}
+	case touchStateSettled:
+		g.touchState = touchStateNone
+	}
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -145,17 +179,10 @@ func draw(g *Game, screen *ebiten.Image) {
 	}
 }
 
-func interaction(x int, y int, g *Game) {
+func (g *Game) interaction(x int, y int) {
 	x = clamp(x/CELL_SIZE, 0, RES-1)
 	y = clamp(y/CELL_SIZE, 0, RES-1)
-	g.board[x][y] = 1	
-
-	// for dx := -1; dx <= 1; dx++ {
-	// 	for dy := -1; dy <= 1; dy++ {
-	// 		nx, ny := clamp(x+dx, 0, RES-1), clamp(y+dy, 0, RES-1)
-	// 		g.board[nx][ny] = 1
-	// 	}
-	// }
+	g.board[x][y] = 1 
 }
 
 func main() {
