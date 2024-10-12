@@ -30,7 +30,6 @@ type Game struct {
 	lastUpdate  time.Time
 	updateDelay time.Duration
 	touchState  touchState
-	touchID     ebiten.TouchID
 }
 
 var (
@@ -93,20 +92,10 @@ func (g *Game) handleInput() {
 
 	// Handle touch input
 	touches := ebiten.TouchIDs()
-	switch g.touchState {
-	case touchStateNone:
-		if len(touches) == 1 {
-			g.touchID = touches[0]
-			x, y := ebiten.TouchPosition(g.touchID)
-			g.interaction(x, y) 			
-			g.touchState = touchStatePressing
-		}
-	case touchStatePressing:
-		if len(touches) == 0 {
-			g.touchState = touchStateSettled
-		}
-	case touchStateSettled:
-		g.touchState = touchStateNone
+	if len(touches) > 0 {
+			touchID := touches[0]
+			x, y := ebiten.TouchPosition(touchID)
+			g.interaction(x, y)
 	}
 }
 
